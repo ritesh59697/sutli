@@ -13,7 +13,7 @@ const coder = new BorshAccountsCoder(IDL);
 
 async function findLivePosition() {
   const disc = BorshAccountsCoder.accountDiscriminator("Position");
-  const sigs = await conn.getSignaturesForAddress(PID, { limit: 40 });
+  const sigs = await conn.getSignaturesForAddress(PID, { limit: Number(process.env.SIG_LIMIT || 40) });
   const seen = new Set<string>();
   for (const s of sigs) {
     if (s.err) continue;
@@ -21,13 +21,14 @@ async function findLivePosition() {
     if (!tx) continue;
     const keys = tx.transaction.message.getAccountKeys({ accountKeysFromLookups: tx.meta?.loadedAddresses }).keySegments().flat();
     const fresh = keys.filter(k => !seen.has(k.toBase58())); fresh.forEach(k => seen.add(k.toBase58()));
-    for (let i = 0; i < fresh.length; i += 100) {
-      const infos = await conn.getMultipleAccountsInfo(fresh.slice(i, i + 100));
+    const B = Number(process.env.BATCH || 100);
+    for (let i = 0; i < fresh.length; i += B) {
+      const infos = await conn.getMultipleAccountsInfo(fresh.slice(i, i + B));
       for (let j = 0; j < infos.length; j++) {
         const a = infos[j];
         if (!a || !a.owner.equals(PID) || !a.data.subarray(0, 8).equals(disc)) continue;
         const p: any = coder.decode("position", a.data);
-        if (p.sizeUsd.gtn(0)) return { pubkey: fresh[i + j], p };
+        if (p.sizeUsd.gtn(0) && (!process.env.SIDE || Object.keys(p.side)[0] === process.env.SIDE)) return { pubkey: fresh[i + j], p };
       }
     }
   }
