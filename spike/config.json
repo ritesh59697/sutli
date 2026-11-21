@@ -1,0 +1,6 @@
+{
+  "rpcUrl": "https://api.mainnet-beta.solana.com",
+  "perpsProgramId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+  "perpsEventAuthority": "37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN",
+  "jlpPool": "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq"
+}
