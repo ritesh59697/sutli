@@ -21,6 +21,7 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
 
   const [kind, setKind] = useState<OddsSource["kind"]>("kalshi");
   const [marketId, setMarketId] = useState("");
+  const [pmCluster, setPmCluster] = useState<"mainnet" | "devnet">("mainnet");
   const [direction, setDirection] = useState<Trigger["direction"]>("above");
   const [linePct, setLinePct] = useState(60);
   const [holdPolls, setHoldPolls] = useState(config.trigger.defaultHoldPolls);
@@ -31,8 +32,11 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
   const [signed, setSigned] = useState<{ tx: Transaction; decoded: DecodedIx[] } | null>(null);
   const [armedId, setArmedId] = useState<string | null>(null);
 
-  const trigger: Trigger | null = marketId
-    ? { source: { kind, id: marketId.trim() }, direction, line: linePct / 100, holdPolls, minLiquidityUsd: minLiq }
+  const source: OddsSource | null = !marketId.trim()
+    ? null
+    : kind === "pmamm" ? { kind, id: marketId.trim(), cluster: pmCluster } : { kind, id: marketId.trim() };
+  const trigger: Trigger | null = source
+    ? { source, direction, line: linePct / 100, holdPolls, minLiquidityUsd: minLiq }
     : null;
   const preview = useMemo(() => (odds && trigger ? conditionMet(odds, trigger) : null), [odds, trigger]);
 
@@ -51,7 +55,7 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
   useEffect(() => { setSigned(null); setArmedId(null); }, [picked?.address]);
 
   const loadOdds = () => run("odds", async () => {
-    setOdds(await keeper<Odds>(`/odds?kind=${kind}&id=${encodeURIComponent(marketId.trim())}`));
+    setOdds(await keeper<Odds>(`/odds?kind=${kind}&id=${encodeURIComponent(marketId.trim())}&cluster=${pmCluster}`));
   });
 
   const createNonce = () => run("nonce", async () => {
@@ -134,11 +138,22 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
               <select id="src" value={kind} onChange={e => { setKind(e.target.value as OddsSource["kind"]); setOdds(null); }}>
                 <option value="kalshi">Kalshi</option>
                 <option value="polymarket">Polymarket</option>
+                <option value="pmamm">pm-AMM (on Solana)</option>
               </select>
             </div>
+            {kind === "pmamm" && (
+              <div className="field" style={{ flex: "0 1 120px" }}>
+                <label htmlFor="pmc">Network</label>
+                <select id="pmc" value={pmCluster} onChange={e => { setPmCluster(e.target.value as "mainnet" | "devnet"); setOdds(null); }}>
+                  <option value="mainnet">Mainnet</option>
+                  <option value="devnet">Devnet (demo)</option>
+                </select>
+              </div>
+            )}
             <div className="field">
-              <label htmlFor="mid">{kind === "kalshi" ? "Market ticker" : "Market id"}</label>
-              <input id="mid" value={marketId} onChange={e => { setMarketId(e.target.value); setOdds(null); }} placeholder={kind === "kalshi" ? "e.g. KXFEDDECISION-…" : "e.g. 516710"} />
+              <label htmlFor="mid">{kind === "kalshi" ? "Market ticker" : kind === "pmamm" ? "Market address" : "Market id"}</label>
+              <input id="mid" value={marketId} onChange={e => { setMarketId(e.target.value); setOdds(null); }}
+                placeholder={kind === "kalshi" ? "e.g. KXFEDDECISION-…" : kind === "pmamm" ? "pm-AMM market account" : "e.g. 516710"} />
             </div>
             <div className="field" style={{ flex: "0 0 auto" }}>
               <button className="btn" onClick={loadOdds} disabled={!marketId || busy === "odds"}>

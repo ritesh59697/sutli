@@ -21,6 +21,7 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.29.0",
     "@hono/node-server": "^2.1.11",
+    "@pm-amm/sdk": "^0.2.0",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.28",
     "@solana/wallet-adapter-react": "^0.15.40",

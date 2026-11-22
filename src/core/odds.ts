@@ -1,7 +1,12 @@
 // Live odds for the YES side, as prices in [0,1]. bid = what you could sell YES for right now.
+import type { Connection } from "@solana/web3.js";
 import { config } from "./config";
 
-export type OddsSource = { kind: "kalshi"; id: string } | { kind: "polymarket"; id: string };
+export type OddsSource =
+  | { kind: "kalshi"; id: string }
+  | { kind: "polymarket"; id: string }
+  | { kind: "pmamm"; id: string; cluster: "mainnet" | "devnet" };
+
 export interface Odds {
   label: string;
   bid: number | null;
@@ -32,7 +37,14 @@ async function getJson(url: string) {
   throw last instanceof Error ? last : new Error(String(last));
 }
 
-export async function fetchOdds(src: OddsSource): Promise<Odds> {
+/** `conns` is only needed for on-chain sources (pm-AMM). */
+export async function fetchOdds(src: OddsSource, conns?: Partial<Record<"mainnet" | "devnet", Connection>>): Promise<Odds> {
+  if (src.kind === "pmamm") {
+    const conn = conns?.[src.cluster];
+    if (!conn) throw new Error(`no ${src.cluster} connection configured for pm-AMM`);
+    const { fetchPmAmmOdds } = await import("./pmamm"); // server-side only; keeps the SDK out of the web bundle
+    return fetchPmAmmOdds(conn, src.cluster, src.id);
+  }
   if (src.kind === "kalshi") {
     const { market: m } = await getJson(`${config.odds.kalshiBase}/markets/${encodeURIComponent(src.id)}`);
     const bid = num(m.yes_bid_dollars);
@@ -52,3 +64,5 @@ export async function fetchOdds(src: OddsSource): Promise<Odds> {
     at: Date.now(),
   };
 }
+
+export const sourceKey = (s: OddsSource) => (s.kind === "pmamm" ? `pmamm:${s.cluster}:${s.id}` : `${s.kind}:${s.id}`);

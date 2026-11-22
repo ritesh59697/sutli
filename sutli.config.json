@@ -25,6 +25,17 @@
   },
   "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
   "lighthouseProgramId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+  "pmAmm": {
+    "programId": "GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y",
+    "collateralMint": {
+      "mainnet": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "devnet": "3WQ8hCqTNwjrh8WzE2XyoZoUrd1miPcwWfMkmFPUMEWZ"
+    },
+    "swapFeeBps": 200,
+    "swapFeeSource": "SWAP_FEE_BPS compiled into the pm-AMM program (not stored in an account); re-check on program upgrade",
+    "zClamp": 5.9,
+    "probeUsd": 10
+  },
   "explorer": "https://solscan.io",
   "rpc": {
     "maxAccountsPerCall": 10,

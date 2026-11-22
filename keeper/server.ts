@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { config } from "../src/core/config";
-import { fetchOdds, type Odds, type OddsSource } from "../src/core/odds";
+import { fetchOdds, sourceKey, type Odds, type OddsSource } from "../src/core/odds";
 import { conditionMet, type Trigger } from "../src/core/trigger";
 import { checkArmShape, describeTx, fromB64, readNonce } from "../src/core/order";
 import { fetchPosition } from "../src/core/jupiter";
@@ -19,6 +19,8 @@ const ORDERS_FILE = process.env.ORDERS_FILE || config.keeper.ordersFile;
 const POLL_MS = Number(process.env.POLL_MS || config.keeper.pollMs);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 const conn = new Connection(RPC, "confirmed");
+const devnetConn = process.env.DEVNET_RPC ? new Connection(process.env.DEVNET_RPC, "confirmed") : undefined;
+const oddsConns = { mainnet: conn, devnet: devnetConn };
 
 type Status = "armed" | "fired" | "filled" | "blocked" | "disarmed" | "stale";
 interface Order {
@@ -85,8 +87,8 @@ async function tick() {
         continue;
       }
       if (o.status !== "armed") continue;
-      const key = `${o.trigger.source.kind}:${o.trigger.source.id}`;
-      if (!cache.has(key)) cache.set(key, await fetchOdds(o.trigger.source).catch(e => e as Error));
+      const key = sourceKey(o.trigger.source);
+      if (!cache.has(key)) cache.set(key, await fetchOdds(o.trigger.source, oddsConns).catch(e => e as Error));
       const odds = cache.get(key)!;
       if (odds instanceof Error) { touch(o, { lastCheck: `odds unavailable: ${odds.message}`, holdCount: 0 }); continue; }
       const c = conditionMet(odds, o.trigger);
@@ -125,8 +127,10 @@ app.post("/rpc/:cluster", async c => {
 app.get("/odds", async c => {
   const kind = c.req.query("kind") as OddsSource["kind"];
   const id = c.req.query("id") ?? "";
-  if (!["kalshi", "polymarket"].includes(kind) || !id) return c.json({ error: "kind and id required" }, 400);
-  try { return c.json(await fetchOdds({ kind, id } as OddsSource)); }
+  const cluster = c.req.query("cluster") === "devnet" ? "devnet" : "mainnet";
+  if (!["kalshi", "polymarket", "pmamm"].includes(kind) || !id) return c.json({ error: "kind and id required" }, 400);
+  const src = (kind === "pmamm" ? { kind, id, cluster } : { kind, id }) as OddsSource;
+  try { return c.json(await fetchOdds(src, oddsConns)); }
   catch (e) { return c.json({ error: (e as Error).message }, 502); }
 });
 
