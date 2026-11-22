@@ -1,0 +1,10 @@
+import { Connection, PublicKey } from "@solana/web3.js";
+import { fetchPosition, positionPda, loadCustodies } from "../src/core/jupiter";
+const conn = new Connection(process.env.RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
+const addr = new PublicKey(process.argv[2]);
+const info = await conn.getAccountInfo(addr);
+console.log("exists", !!info, info?.data.length);
+const p = await fetchPosition(conn, addr);
+console.log(p);
+if (p) console.log("derived", positionPda(new PublicKey(p.owner), new PublicKey(p.custody), new PublicKey(p.collateralCustody), p.side).toBase58());
+console.log((await loadCustodies(conn)).map(c => [c.address.toBase58().slice(0,6), c.mint.toBase58().slice(0,6), c.isStable]));

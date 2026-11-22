@@ -1,0 +1,34 @@
+{
+  "jupiterPerps": {
+    "programId": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+    "eventAuthority": "37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN",
+    "pool": "5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq",
+    "closeComputeUnits": 400000
+  },
+  "odds": {
+    "kalshiBase": "https://api.elections.kalshi.com/trade-api/v2",
+    "polymarketBase": "https://gamma-api.polymarket.com",
+    "retries": 4,
+    "backoffMs": 400,
+    "timeoutMs": 8000
+  },
+  "trigger": {
+    "defaultHoldPolls": 3,
+    "defaultMinLiquidityUsd": 500
+  },
+  "mintLabels": {
+    "So11111111111111111111111111111111111111112": "SOL",
+    "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs": "ETH",
+    "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh": "BTC",
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
+    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": "USDT"
+  },
+  "walletTest": {
+    "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+  },
+  "explorer": "https://solscan.io",
+  "keeper": {
+    "pollMs": 15000,
+    "ordersFile": "data/orders.json"
+  }
+}
