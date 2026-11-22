@@ -24,8 +24,18 @@
     "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": "USDT"
   },
   "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "lighthouseProgramId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
   "explorer": "https://solscan.io",
-  "rpc": { "maxAccountsPerCall": 10, "confirmPollMs": 2000, "confirmTimeoutMs": 90000 },
+  "rpc": {
+    "maxAccountsPerCall": 10,
+    "confirmPollMs": 2000,
+    "confirmTimeoutMs": 90000,
+    "proxyMaxBodyBytes": 65536,
+    "proxyMethods": [
+      "getAccountInfo", "getMultipleAccounts", "getLatestBlockhash", "getMinimumBalanceForRentExemption",
+      "getBalance", "getSignatureStatuses", "sendTransaction", "simulateTransaction", "getBlockHeight"
+    ]
+  },
   "keeper": {
     "pollMs": 15000,
     "ordersFile": "data/orders.json"

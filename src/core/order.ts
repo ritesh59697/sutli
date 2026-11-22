@@ -1,4 +1,5 @@
-// Arm order = one legacy transaction: [advance nonce, compute budget, Jupiter close].
+// Arm order = one legacy transaction:
+// [advance nonce, compute budget, guard memo (co-signer), pin position openTime (Lighthouse), Jupiter close].
 // The wallet signs it once; it is never broadcast until the trigger fires.
 import { BN, BorshInstructionCoder } from "@coral-xyz/anchor";
 import { IDL } from "./jupiter-idl";
@@ -8,6 +9,7 @@ import {
 } from "@solana/web3.js";
 import { PERPS_PROGRAM_ID, config } from "./config";
 import { buildCloseIx, type PositionView } from "./jupiter";
+import { assertI64EqualIx, decodeAssertI64, locateI64 } from "./guard";
 
 export async function buildCreateNonceTx(conn: Connection, owner: PublicKey) {
   const nonce = Keypair.generate();
@@ -37,11 +39,16 @@ export function buildPinnedTx(owner: PublicKey, nonceAccount: PublicKey, nonceVa
 export async function buildArmTx(conn: Connection, pos: PositionView, nonceAccount: PublicKey, nonceValue: string) {
   const counter = new BN(Math.floor(Math.random() * 2 ** 40));
   const close = await buildCloseIx(conn, pos, counter);
+  const position = new PublicKey(pos.address);
+  const acct = await conn.getAccountInfo(position);
+  if (!acct) throw new Error("position account not found");
+  const openTime = BigInt(pos.openTime);
   // A throwaway guard key signs first, so a wallet that edits transactions (Phantom did once) cannot.
   const guard = Keypair.generate();
   const tx = buildPinnedTx(new PublicKey(pos.owner), nonceAccount, nonceValue, [
     ComputeBudgetProgram.setComputeUnitLimit({ units: config.jupiterPerps.closeComputeUnits }),
     guardMemo(new PublicKey(config.memoProgramId), guard.publicKey, `sutli order ${counter.toString()}`),
+    assertI64EqualIx(position, locateI64(acct.data, openTime), openTime), // fails if the position was closed and reopened
     close,
   ]);
   tx.partialSign(guard);
@@ -88,16 +95,22 @@ export function verifySigned(expected: Transaction, signed: Transaction): { ok: 
 const perpsCoder = new BorshInstructionCoder(IDL);
 
 /** Strict shape check used by the keeper before it stores an order. */
-export function checkArmShape(tx: Transaction, expect: { owner: string; nonceAccount: string; position: string }): string | null {
+export function checkArmShape(
+  tx: Transaction,
+  expect: { owner: string; nonceAccount: string; position: string; openTime: number },
+): string | null {
   tx = compiled(tx);
   const d = describeTx(tx);
-  if (d.length !== 4) return "Arm transaction must have exactly 4 instructions.";
+  if (d.length !== 5) return "Arm transaction must have exactly 5 instructions.";
   if (d[0].action !== "Advance nonce" || d[0].detail !== expect.nonceAccount) return "First instruction must advance this order's nonce.";
   if (d[1].program !== "Compute budget") return "Second instruction must be the compute limit.";
   if (d[2].action !== "Guard signature") return "Third instruction must be the guard memo.";
-  if (d[3].action !== "Close entire position (market)" || d[3].detail !== expect.position) return "Fourth instruction must close the armed position.";
+  const pin = decodeAssertI64(tx.instructions[3]);
+  if (!pin || pin.target !== expect.position || pin.value !== BigInt(expect.openTime))
+    return "Fourth instruction must pin this exact position (its openTime).";
+  if (d[4].action !== "Close entire position (market)" || d[4].detail !== expect.position) return "Fifth instruction must close the armed position.";
   if (tx.feePayer?.toBase58() !== expect.owner) return "Fee payer must be the position owner.";
-  if (tx.instructions[3].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
+  if (tx.instructions[4].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
   return null;
 }
 
@@ -117,6 +130,8 @@ export function describeTx(tx: Transaction): DecodedIx[] {
       return { program: "System", action: type };
     }
     if (ix.programId.equals(ComputeBudgetProgram.programId)) return { program: "Compute budget", action: "Set compute limit" };
+    const pin = decodeAssertI64(ix);
+    if (pin) return { program: "Lighthouse", action: `Only if position still opened at ${new Date(Number(pin.value) * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`, detail: pin.target };
     if (ix.programId.equals(new PublicKey(config.memoProgramId)) && ix.keys.length === 1 && ix.keys[0].isSigner)
       return { program: "Memo", action: "Guard signature", detail: ix.keys[0].pubkey.toBase58() };
     if (ix.programId.equals(PERPS_PROGRAM_ID)) {

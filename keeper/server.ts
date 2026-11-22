@@ -105,6 +105,23 @@ app.use("*", cors({ origin: ALLOWED_ORIGIN }));
 
 app.get("/health", c => c.json({ ok: true, orders: orders.length, pollMs: POLL_MS }));
 
+/** RPC proxy so the browser never sees the provider key. Only the read/send methods the app uses are allowed. */
+const UPSTREAM: Record<string, string | undefined> = { mainnet: RPC, devnet: process.env.DEVNET_RPC };
+const ALLOWED = new Set(config.rpc.proxyMethods);
+app.post("/rpc/:cluster", async c => {
+  const upstream = UPSTREAM[c.req.param("cluster")];
+  if (!upstream) return c.json({ error: "unknown or unconfigured cluster" }, 404);
+  const raw = await c.req.text();
+  if (raw.length > config.rpc.proxyMaxBodyBytes) return c.json({ error: "request too large" }, 413);
+  let body: unknown;
+  try { body = JSON.parse(raw); } catch { return c.json({ error: "invalid JSON" }, 400); }
+  const calls = Array.isArray(body) ? body : [body];
+  const bad = calls.find((x: any) => !x || typeof x.method !== "string" || !ALLOWED.has(x.method));
+  if (bad) return c.json({ jsonrpc: "2.0", id: (bad as any)?.id ?? null, error: { code: -32601, message: `method not allowed: ${(bad as any)?.method}` } }, 403);
+  const r = await fetch(upstream, { method: "POST", headers: { "content-type": "application/json" }, body: raw });
+  return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+});
+
 app.get("/odds", async c => {
   const kind = c.req.query("kind") as OddsSource["kind"];
   const id = c.req.query("id") ?? "";
@@ -126,7 +143,7 @@ app.post("/orders", async c => {
   if (!tx.verifySignatures(true)) return c.json({ error: "transaction is not fully signed" }, 400);
   const pos = await fetchPosition(conn, new PublicKey(b.position));
   if (!pos) return c.json({ error: "position not found or closed" }, 400);
-  const shapeErr = checkArmShape(tx, { owner: pos.owner, nonceAccount: b.nonceAccount, position: b.position });
+  const shapeErr = checkArmShape(tx, { owner: pos.owner, nonceAccount: b.nonceAccount, position: b.position, openTime: pos.openTime });
   if (shapeErr) return c.json({ error: shapeErr }, 400);
   const nonce = await readNonce(conn, new PublicKey(b.nonceAccount));
   if (!nonce || nonce.authority !== pos.owner || nonce.value !== tx.recentBlockhash)
