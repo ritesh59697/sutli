@@ -23,9 +23,7 @@
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
     "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": "USDT"
   },
-  "walletTest": {
-    "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-  },
+  "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
   "explorer": "https://solscan.io",
   "rpc": { "maxAccountsPerCall": 10, "confirmPollMs": 2000, "confirmTimeoutMs": 90000 },
   "keeper": {

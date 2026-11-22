@@ -37,9 +37,15 @@ export function buildPinnedTx(owner: PublicKey, nonceAccount: PublicKey, nonceVa
 export async function buildArmTx(conn: Connection, pos: PositionView, nonceAccount: PublicKey, nonceValue: string) {
   const counter = new BN(Math.floor(Math.random() * 2 ** 40));
   const close = await buildCloseIx(conn, pos, counter);
-  return buildPinnedTx(new PublicKey(pos.owner), nonceAccount, nonceValue, [
-    ComputeBudgetProgram.setComputeUnitLimit({ units: config.jupiterPerps.closeComputeUnits }), close,
+  // A throwaway guard key signs first, so a wallet that edits transactions (Phantom did once) cannot.
+  const guard = Keypair.generate();
+  const tx = buildPinnedTx(new PublicKey(pos.owner), nonceAccount, nonceValue, [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: config.jupiterPerps.closeComputeUnits }),
+    guardMemo(new PublicKey(config.memoProgramId), guard.publicKey, `sutli order ${counter.toString()}`),
+    close,
   ]);
+  tx.partialSign(guard);
+  return tx;
 }
 
 /** Disarm = advance the nonce. The stored signed bytes can never land after this. */
@@ -85,12 +91,13 @@ const perpsCoder = new BorshInstructionCoder(IDL);
 export function checkArmShape(tx: Transaction, expect: { owner: string; nonceAccount: string; position: string }): string | null {
   tx = compiled(tx);
   const d = describeTx(tx);
-  if (d.length !== 3) return "Arm transaction must have exactly 3 instructions.";
+  if (d.length !== 4) return "Arm transaction must have exactly 4 instructions.";
   if (d[0].action !== "Advance nonce" || d[0].detail !== expect.nonceAccount) return "First instruction must advance this order's nonce.";
   if (d[1].program !== "Compute budget") return "Second instruction must be the compute limit.";
-  if (d[2].action !== "Close entire position (market)" || d[2].detail !== expect.position) return "Third instruction must close the armed position.";
+  if (d[2].action !== "Guard signature") return "Third instruction must be the guard memo.";
+  if (d[3].action !== "Close entire position (market)" || d[3].detail !== expect.position) return "Fourth instruction must close the armed position.";
   if (tx.feePayer?.toBase58() !== expect.owner) return "Fee payer must be the position owner.";
-  if (tx.instructions[2].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
+  if (tx.instructions[3].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
   return null;
 }
 
@@ -110,6 +117,8 @@ export function describeTx(tx: Transaction): DecodedIx[] {
       return { program: "System", action: type };
     }
     if (ix.programId.equals(ComputeBudgetProgram.programId)) return { program: "Compute budget", action: "Set compute limit" };
+    if (ix.programId.equals(new PublicKey(config.memoProgramId)) && ix.keys.length === 1 && ix.keys[0].isSigner)
+      return { program: "Memo", action: "Guard signature", detail: ix.keys[0].pubkey.toBase58() };
     if (ix.programId.equals(PERPS_PROGRAM_ID)) {
       const d = perpsCoder.decode(ix.data);
       if (d?.name === "createDecreasePositionMarketRequest" && (d.data as any).params?.entirePosition)

@@ -53,13 +53,13 @@ export function WalletTest() {
   const preSign = (coSign: boolean) => run("sign", async () => {
     if (!publicKey || !signTransaction || !nonce) return;
     const memo = new TransactionInstruction({
-      programId: new PublicKey(config.walletTest.memoProgramId),
+      programId: new PublicKey(config.memoProgramId),
       keys: [{ pubkey: publicKey, isSigner: true, isWritable: false }],
       data: Buffer.from(`sutli wallet test ${new Date().toISOString()}`),
     });
     const body = [memo];
     const guard = coSign ? Keypair.generate() : null;
-    if (guard) body.push(guardMemo(new PublicKey(config.walletTest.memoProgramId), guard.publicKey, "sutli guard"));
+    if (guard) body.push(guardMemo(new PublicKey(config.memoProgramId), guard.publicKey, "sutli guard"));
     const tx = buildPinnedTx(publicKey, new PublicKey(nonce.account), nonce.value, body);
     if (guard) tx.partialSign(guard); // signs the final message first, so the wallet cannot change it
     const expected = Transaction.populate(tx.compileMessage());
