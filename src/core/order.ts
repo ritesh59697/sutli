@@ -49,6 +49,28 @@ export async function buildDisarmTx(conn: Connection, owner: PublicKey, nonceAcc
     .add(SystemProgram.nonceAdvance({ noncePubkey: nonceAccount, authorizedPubkey: owner }));
 }
 
+/** Plain-language list of differences between what we built and what the wallet signed. */
+export function diffTx(expected: Transaction, signed: Transaction): string[] {
+  const a = compiled(expected), b = compiled(signed);
+  const out: string[] = [];
+  if (a.recentBlockhash !== b.recentBlockhash) out.push(`blockhash ${a.recentBlockhash?.slice(0, 8)}… → ${b.recentBlockhash?.slice(0, 8)}…`);
+  if (!a.feePayer?.equals(b.feePayer!)) out.push(`fee payer changed to ${b.feePayer?.toBase58()}`);
+  const label = (ix: TransactionInstruction) => `${ix.programId.toBase58().slice(0, 8)}… (${ix.data.length}B, ${ix.keys.length} accounts)`;
+  const n = Math.max(a.instructions.length, b.instructions.length);
+  for (let i = 0; i < n; i++) {
+    const x = a.instructions[i], y = b.instructions[i];
+    if (!x) out.push(`added #${i}: ${label(y)}`);
+    else if (!y) out.push(`removed #${i}: ${label(x)}`);
+    else if (!x.programId.equals(y.programId) || !x.data.equals(y.data) || x.keys.length !== y.keys.length) out.push(`changed #${i}: ${label(x)} → ${label(y)}`);
+  }
+  return out.length ? out : ["same instructions and blockhash; only account ordering or header differs"];
+}
+
+/** A throwaway key that signs first. Wallets such as Phantom leave an already co-signed transaction unmodified. */
+export function guardMemo(memoProgramId: PublicKey, guard: PublicKey, text: string) {
+  return new TransactionInstruction({ programId: memoProgramId, keys: [{ pubkey: guard, isSigner: true, isWritable: false }], data: Buffer.from(text) });
+}
+
 /** The wallet must hand back exactly the message we built, with a valid signature. */
 export function verifySigned(expected: Transaction, signed: Transaction): { ok: boolean; reason?: string } {
   const a = expected.serializeMessage(), b = signed.serializeMessage();

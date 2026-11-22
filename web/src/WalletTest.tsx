@@ -1,19 +1,34 @@
 // Free check on devnet: does this wallet sign a durable-nonce transaction without changing it,
 // and does that signed transaction still land later?
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const NONCE_KEY = "sutli.devnetNonce";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { CheckCircle2, Circle, KeyRound, Loader2, PenLine, Send } from "lucide-react";
-import { buildCreateNonceTx, buildPinnedTx, readNonce, verifySigned } from "../../src/core/order";
+import { buildCreateNonceTx, buildPinnedTx, diffTx, guardMemo, readNonce, verifySigned } from "../../src/core/order";
 import { config } from "../../src/core/config";
-import { accountLink, devnet, errMsg, short, signAndSend, txLink } from "./lib";
+import { accountLink, devnet, errMsg, short, signAndSend, txLink, waitForSignature } from "./lib";
 
 export function WalletTest() {
   const { publicKey, signTransaction, wallet } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
-  const [nonce, setNonce] = useState<{ account: string; value: string } | null>(null);
+  const [nonce, setNonceState] = useState<{ account: string; value: string } | null>(null);
+  const setNonce = (n: { account: string; value: string } | null) => {
+    setNonceState(n);
+    try { n ? localStorage.setItem(NONCE_KEY, n.account) : localStorage.removeItem(NONCE_KEY); } catch { /* storage unavailable */ }
+  };
+  // Reuse the devnet nonce account across reloads (its current value is re-read from chain).
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(NONCE_KEY); } catch { /* storage unavailable */ }
+    if (!saved || !publicKey) return;
+    readNonce(devnet, new PublicKey(saved)).then(n => {
+      if (n && n.authority === publicKey.toBase58()) setNonceState({ account: saved!, value: n.value });
+    }).catch(() => {});
+  }, [publicKey?.toBase58()]);
   const [signed, setSigned] = useState<{ tx: Transaction; signedAt: number } | null>(null);
   const [verdict, setVerdict] = useState<string | null>(null);
   const [landed, setLanded] = useState<{ sig: string; waitedSec: number } | null>(null);
@@ -35,32 +50,39 @@ export function WalletTest() {
     setSigned(null); setVerdict(null); setLanded(null);
   });
 
-  const preSign = () => run("sign", async () => {
+  const preSign = (coSign: boolean) => run("sign", async () => {
     if (!publicKey || !signTransaction || !nonce) return;
     const memo = new TransactionInstruction({
       programId: new PublicKey(config.walletTest.memoProgramId),
       keys: [{ pubkey: publicKey, isSigner: true, isWritable: false }],
       data: Buffer.from(`sutli wallet test ${new Date().toISOString()}`),
     });
-    const tx = buildPinnedTx(publicKey, new PublicKey(nonce.account), nonce.value, [memo]);
+    const body = [memo];
+    const guard = coSign ? Keypair.generate() : null;
+    if (guard) body.push(guardMemo(new PublicKey(config.walletTest.memoProgramId), guard.publicKey, "sutli guard"));
+    const tx = buildPinnedTx(publicKey, new PublicKey(nonce.account), nonce.value, body);
+    if (guard) tx.partialSign(guard); // signs the final message first, so the wallet cannot change it
     const expected = Transaction.populate(tx.compileMessage());
     const out = await signTransaction(tx);
     const v = verifySigned(expected, out);
-    setVerdict(v.ok ? `${wallet?.adapter.name ?? "Wallet"} signed the nonce transaction and returned it unchanged.` : `Problem: ${v.reason}`);
+    const name = wallet?.adapter.name ?? "Wallet";
+    setVerdict(v.ok
+      ? `${name} signed the nonce transaction${guard ? " (with a co-signer)" : ""} and returned it unchanged.`
+      : `Problem${guard ? " (with a co-signer)" : ""}: ${v.reason} ${diffTx(expected, out).join("; ")}`);
     if (v.ok) setSigned({ tx: out, signedAt: Date.now() });
   });
 
   const sendLater = () => run("send", async () => {
     if (!signed || !nonce) return;
     const sig = await devnet.sendRawTransaction(signed.tx.serialize());
-    const res = await devnet.confirmTransaction({ signature: sig, nonceAccountPubkey: new PublicKey(nonce.account), nonceValue: nonce.value, minContextSlot: 0 }, "confirmed");
-    if (res.value.err) throw new Error(`landed but failed: ${JSON.stringify(res.value.err)}`);
+    await waitForSignature(devnet, sig);
     setLanded({ sig, waitedSec: Math.round((Date.now() - signed.signedAt) / 1000) });
   });
 
   const steps = [
     { done: !!nonce, icon: KeyRound, label: "Create a devnet nonce account", act: createNonce, key: "nonce", can: !!publicKey && !nonce },
-    { done: !!signed, icon: PenLine, label: "Pre-sign a memo with that nonce", act: preSign, key: "sign", can: !!nonce && !signed },
+    { done: !!signed, icon: PenLine, label: "Pre-sign a memo with that nonce", act: () => preSign(false), key: "sign", can: !!nonce && !signed },
+    { done: !!signed, icon: PenLine, label: "Pre-sign again with a co-signer (if the plain one was changed)", act: () => preSign(true), key: "sign2", can: !!nonce && !signed },
     { done: !!landed, icon: Send, label: "Wait a few minutes, then send it", act: sendLater, key: "send", can: !!signed && !landed },
   ];
 

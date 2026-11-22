@@ -3,7 +3,7 @@ import { AnchorProvider, BN, BorshAccountsCoder, Program } from "@coral-xyz/anch
 import { Connection, Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { IDL, type Perpetuals } from "./jupiter-idl";
-import { JLP_POOL, PERPS_EVENT_AUTHORITY, PERPS_PROGRAM_ID } from "./config";
+import { JLP_POOL, PERPS_EVENT_AUTHORITY, PERPS_PROGRAM_ID, config } from "./config";
 
 export type Side = "long" | "short";
 export interface PositionView {
@@ -75,7 +75,11 @@ export async function listPositions(conn: Connection, owner: PublicKey): Promise
     slots.push({ pda: positionPda(owner, m.address, m.address, "long") });
     for (const s of stables) slots.push({ pda: positionPda(owner, m.address, s.address, "short") });
   }
-  const infos = await conn.getMultipleAccountsInfo(slots.map(s => s.pda));
+  // Some free RPCs cap accounts per call, so fetch in configured chunks.
+  const size = config.rpc.maxAccountsPerCall;
+  const infos = [];
+  for (let i = 0; i < slots.length; i += size)
+    infos.push(...(await conn.getMultipleAccountsInfo(slots.slice(i, i + size).map(s => s.pda))));
   const out: PositionView[] = [];
   infos.forEach((info, i) => {
     if (!info || !info.owner.equals(PERPS_PROGRAM_ID)) return;

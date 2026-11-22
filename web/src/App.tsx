@@ -7,7 +7,8 @@ import { OrdersPanel } from "./OrdersPanel";
 type Mode = "arm" | "test";
 
 export function App() {
-  const [mode, setMode] = useState<Mode>("arm");
+  const [mode, setModeState] = useState<Mode>(() => (location.hash === "#test" ? "test" : "arm"));
+  const setMode = (m: Mode) => { setModeState(m); history.replaceState(null, "", m === "test" ? "#test" : "#"); };
   const [ordersVersion, setOrdersVersion] = useState(0);
   return (
     <div className="shell">
