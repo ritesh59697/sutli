@@ -15,10 +15,10 @@ import { fetchPosition } from "../src/core/jupiter";
 import { createDemo } from "./demo";
 
 const RPC = process.env.MAINNET_RPC || "https://api.mainnet-beta.solana.com";
-const PORT = Number(process.env.KEEPER_PORT || 8787);
+const PORT = Number(process.env.PORT || process.env.KEEPER_PORT || 8787); // hosts such as Render set PORT
 const ORDERS_FILE = process.env.ORDERS_FILE || config.keeper.ordersFile;
 const POLL_MS = Number(process.env.POLL_MS || config.keeper.pollMs);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
+const ALLOWED_ORIGIN = (process.env.ALLOWED_ORIGIN || "*").split(",").map(s => s.trim()); // comma-separated list
 const conn = new Connection(RPC, "confirmed");
 const devnetConn = process.env.DEVNET_RPC ? new Connection(process.env.DEVNET_RPC, "confirmed") : undefined;
 const oddsConns = { mainnet: conn, devnet: devnetConn };
@@ -104,7 +104,7 @@ async function tick() {
 }
 
 const app = new Hono();
-app.use("*", cors({ origin: ALLOWED_ORIGIN }));
+app.use("*", cors({ origin: ALLOWED_ORIGIN.length === 1 ? ALLOWED_ORIGIN[0] : ALLOWED_ORIGIN }));
 
 app.get("/health", c => c.json({ ok: true, orders: orders.length, pollMs: POLL_MS }));
 

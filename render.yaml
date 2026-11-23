@@ -1,0 +1,25 @@
+# Render Blueprint for the Sutli keeper (watches odds, holds pre-signed orders, RPC proxy, judge sandbox).
+# Secrets marked sync:false are entered by hand in the Render dashboard, never committed.
+services:
+  - type: web
+    name: sutli-keeper
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run keeper
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: MAINNET_RPC
+        sync: false
+      - key: DEVNET_RPC
+        sync: false
+      - key: DEMO_KEYPAIR_JSON
+        sync: false
+      - key: DEMO_MARKET
+        value: J7x7kfYz7PNMWuVGFwP3tnRfGeK9sV6KUYCfeU3mgvUy
+      - key: DEMO_MARKET_NAME
+        value: "Sutli demo: SOL above $75 at 12-05 21:00 UTC?"
+      - key: ALLOWED_ORIGIN
+        value: https://sutli-app.vercel.app,http://localhost:5201
