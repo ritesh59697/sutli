@@ -112,6 +112,14 @@ tr.pick[aria-selected="true"] td { background: var(--surface-2); box-shadow: ins
 
 .odds { display: flex; gap: var(--s4); align-items: baseline; padding: var(--s3); background: var(--bg); border-radius: var(--r); margin-bottom: var(--s3); }
 .odds .big { font: 500 var(--text-xl) var(--font-mono); white-space: nowrap; }
+.meter { position: relative; height: 10px; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--border); margin: var(--s6) 0 var(--s3); }
+.meter-fill { height: 100%; border-radius: var(--r-sm); background: var(--text-muted); transition: width var(--dur-base) var(--ease); }
+.meter-fill[data-over="true"] { background: var(--accent); }
+.meter-line { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--text); }
+.meter-line span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font: 500 var(--text-xs) var(--font-mono); color: var(--text-muted); white-space: nowrap; }
+.logs { white-space: pre-wrap; word-break: break-all; background: var(--bg); padding: var(--s2); border-radius: var(--r-sm); max-height: 200px; overflow: auto; font-size: var(--text-xs); }
+th { white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
 .notice { padding: var(--s3); border-radius: var(--r); font-size: var(--text-sm); margin-top: var(--s3); border: 1px solid var(--border); }
 .notice.bad { border-color: var(--destructive); color: var(--destructive); }
 .notice.ok { border-color: var(--ok); color: var(--ok); }

@@ -7,7 +7,9 @@ export const devnet = new Connection(env.devnetRpc, "confirmed");
 
 const labels = config.mintLabels as Record<string, string>;
 export const short = (k: string, n = 4) => `${k.slice(0, n)}…${k.slice(-n)}`;
-export const mintLabel = (mint: string) => labels[mint] ?? short(mint);
+/** Shorten only things that look like addresses; leave values such as "400000 units" intact. */
+export const detailText = (d: string) => (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(d) ? short(d) : d);
+export const mintLabel =(mint: string) => labels[mint] ?? short(mint);
 export const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 export const pct = (x: number | null | undefined) => (x === null || x === undefined ? "—" : `${(x * 100).toFixed(1)}%`);
 export const txLink = (sig: string, cluster: "mainnet" | "devnet" = "mainnet") =>

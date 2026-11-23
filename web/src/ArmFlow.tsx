@@ -7,7 +7,7 @@ import { buildArmTx, buildCreateNonceTx, describeTx, readNonce, toB64, verifySig
 import type { Odds, OddsSource } from "../../src/core/odds";
 import { conditionMet, type Trigger } from "../../src/core/trigger";
 import { config } from "../../src/core/config";
-import { accountLink, errMsg, keeper, mainnet, mintLabel, pct, short, signAndSend, txLink, usd } from "./lib";
+import { accountLink, detailText, errMsg, keeper, mainnet, mintLabel, pct, short, signAndSend, txLink, usd } from "./lib";
 
 type Busy = null | "positions" | "nonce" | "sign" | "submit" | "odds";
 
@@ -216,7 +216,7 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
             <h3><ShieldCheck size={14} aria-hidden style={{ verticalAlign: "-2px" }} /> What you signed (the wallet returned it unchanged)</h3>
             <ol>
               {signed.decoded.map((d, i) => (
-                <li key={i}><strong>{d.program}</strong>: {d.action}{d.detail && <> · <span className="mono">{short(d.detail)}</span></>}</li>
+                <li key={i}><strong>{d.program}</strong>: {d.action}{d.detail && <> · <span className="mono">{detailText(d.detail)}</span></>}</li>
               ))}
             </ol>
           </div>
