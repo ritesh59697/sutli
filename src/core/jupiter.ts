@@ -96,6 +96,36 @@ export async function fetchPosition(conn: Connection, address: PublicKey): Promi
   return v.sizeUsd > 0 ? v : null;
 }
 
+/** Find a currently open position from recent Jupiter Perps activity (read-only, for the judge sandbox). */
+export async function findLivePosition(conn: Connection, opts: { signatures: number; preferSide?: Side }): Promise<PositionView | null> {
+  const custodies = await loadCustodies(conn);
+  const disc = BorshAccountsCoder.accountDiscriminator("Position");
+  const sigs = await conn.getSignaturesForAddress(PERPS_PROGRAM_ID, { limit: opts.signatures });
+  const seen = new Set<string>();
+  let fallback: PositionView | null = null;
+  for (const s of sigs) {
+    if (s.err) continue;
+    const tx = await conn.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
+    if (!tx) continue;
+    const keys = tx.transaction.message.getAccountKeys({ accountKeysFromLookups: tx.meta?.loadedAddresses }).keySegments().flat()
+      .filter(k => !seen.has(k.toBase58()));
+    keys.forEach(k => seen.add(k.toBase58()));
+    const size = config.rpc.maxAccountsPerCall;
+    for (let i = 0; i < keys.length; i += size) {
+      const infos = await conn.getMultipleAccountsInfo(keys.slice(i, i + size));
+      for (let j = 0; j < infos.length; j++) {
+        const a = infos[j];
+        if (!a || !a.owner.equals(PERPS_PROGRAM_ID) || !a.data.subarray(0, 8).equals(disc)) continue;
+        const v = decodePosition(keys[i + j], a.data, custodies);
+        if (v.sizeUsd <= 0) continue;
+        if (!opts.preferSide || v.side === opts.preferSide) return v;
+        fallback ??= v;
+      }
+    }
+  }
+  return fallback;
+}
+
 /** Full-position market close. Collateral comes back in the collateral mint. */
 export async function buildCloseIx(conn: Connection, pos: PositionView, counter: BN): Promise<TransactionInstruction> {
   const owner = new PublicKey(pos.owner);

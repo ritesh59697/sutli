@@ -44,8 +44,36 @@
     "proxyMaxBodyBytes": 65536,
     "proxyMethods": [
       "getAccountInfo", "getMultipleAccounts", "getLatestBlockhash", "getMinimumBalanceForRentExemption",
-      "getBalance", "getSignatureStatuses", "sendTransaction", "simulateTransaction", "getBlockHeight"
+      "getBalance", "getSignatureStatuses", "sendTransaction", "simulateTransaction", "getBlockHeight",
+      "getRecentPrioritizationFees"
     ]
+  },
+  "demo": {
+    "keypairPath": "keys/demo-devnet.json",
+    "statePath": "data/demo.json",
+    "faucetUrl": "https://pm-amm-devnet.vercel.app/api/faucet",
+    "priceApi": "https://lite-api.jup.ag/price/v3",
+    "underlyingMint": "So11111111111111111111111111111111111111112",
+    "underlyingLabel": "SOL",
+    "marketEndIso": "2026-12-05T21:00:00Z",
+    "seedLiquidityUsdc": 300,
+    "initialPriceBps": 5000,
+    "line": 0.6,
+    "pushUsdc": 60,
+    "minSolLamports": 50000000,
+    "pushCooldownMs": 8000
+  },
+  "priorityFee": {
+    "percentile": 75,
+    "multiplier": 1.5,
+    "floorMicroLamports": 1000,
+    "maxPriorityLamports": 100000,
+    "transferComputeUnits": 1000
+  },
+  "demoSandbox": {
+    "positionTtlMs": 600000,
+    "scanSignatures": 40,
+    "slippageBps": 300
   },
   "keeper": {
     "pollMs": 15000,

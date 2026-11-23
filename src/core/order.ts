@@ -10,6 +10,7 @@ import {
 import { PERPS_PROGRAM_ID, config } from "./config";
 import { buildCloseIx, type PositionView } from "./jupiter";
 import { assertI64EqualIx, decodeAssertI64, locateI64 } from "./guard";
+import { computeBudgetIxs, describeComputeBudget } from "./fees";
 
 export async function buildCreateNonceTx(conn: Connection, owner: PublicKey) {
   const nonce = Keypair.generate();
@@ -46,7 +47,7 @@ export async function buildArmTx(conn: Connection, pos: PositionView, nonceAccou
   // A throwaway guard key signs first, so a wallet that edits transactions (Phantom did once) cannot.
   const guard = Keypair.generate();
   const tx = buildPinnedTx(new PublicKey(pos.owner), nonceAccount, nonceValue, [
-    ComputeBudgetProgram.setComputeUnitLimit({ units: config.jupiterPerps.closeComputeUnits }),
+    ...(await computeBudgetIxs(conn, config.jupiterPerps.closeComputeUnits, [position, new PublicKey(config.jupiterPerps.pool)])),
     guardMemo(new PublicKey(config.memoProgramId), guard.publicKey, `sutli order ${counter.toString()}`),
     assertI64EqualIx(position, locateI64(acct.data, openTime), openTime), // fails if the position was closed and reopened
     close,
@@ -101,16 +102,19 @@ export function checkArmShape(
 ): string | null {
   tx = compiled(tx);
   const d = describeTx(tx);
-  if (d.length !== 5) return "Arm transaction must have exactly 5 instructions.";
+  if (d.length !== 6) return "Arm transaction must have exactly 6 instructions.";
   if (d[0].action !== "Advance nonce" || d[0].detail !== expect.nonceAccount) return "First instruction must advance this order's nonce.";
-  if (d[1].program !== "Compute budget") return "Second instruction must be the compute limit.";
-  if (d[2].action !== "Guard signature") return "Third instruction must be the guard memo.";
-  const pin = decodeAssertI64(tx.instructions[3]);
+  const limit = describeComputeBudget(tx.instructions[1]), price = describeComputeBudget(tx.instructions[2]);
+  if (d[1].program !== "Compute budget" || limit.action !== "Set compute limit") return "Second instruction must be the compute limit.";
+  if (d[2].program !== "Compute budget" || price.action !== "Set priority fee") return "Third instruction must be the priority fee.";
+  if ((price.microLamports! * limit.units!) / 1e6 > config.priorityFee.maxPriorityLamports) return "Priority fee is above the configured cap.";
+  if (d[3].action !== "Guard signature") return "Fourth instruction must be the guard memo.";
+  const pin = decodeAssertI64(tx.instructions[4]);
   if (!pin || pin.target !== expect.position || pin.value !== BigInt(expect.openTime))
-    return "Fourth instruction must pin this exact position (its openTime).";
-  if (d[4].action !== "Close entire position (market)" || d[4].detail !== expect.position) return "Fifth instruction must close the armed position.";
+    return "Fifth instruction must pin this exact position (its openTime).";
+  if (d[5].action !== "Close entire position (market)" || d[5].detail !== expect.position) return "Sixth instruction must close the armed position.";
   if (tx.feePayer?.toBase58() !== expect.owner) return "Fee payer must be the position owner.";
-  if (tx.instructions[4].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
+  if (tx.instructions[5].keys[0].pubkey.toBase58() !== expect.owner) return "Close request owner mismatch.";
   return null;
 }
 
@@ -129,7 +133,11 @@ export function describeTx(tx: Transaction): DecodedIx[] {
       }
       return { program: "System", action: type };
     }
-    if (ix.programId.equals(ComputeBudgetProgram.programId)) return { program: "Compute budget", action: "Set compute limit" };
+    if (ix.programId.equals(ComputeBudgetProgram.programId)) {
+      const cb = describeComputeBudget(ix);
+      const detail = cb.units !== undefined ? `${cb.units} units` : cb.microLamports !== undefined ? `${cb.microLamports} µlamports/unit` : undefined;
+      return { program: "Compute budget", action: cb.action, detail };
+    }
     const pin = decodeAssertI64(ix);
     if (pin) return { program: "Lighthouse", action: `Only if position still opened at ${new Date(Number(pin.value) * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`, detail: pin.target };
     if (ix.programId.equals(new PublicKey(config.memoProgramId)) && ix.keys.length === 1 && ix.keys[0].isSigner)

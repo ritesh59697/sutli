@@ -12,6 +12,7 @@ import { fetchOdds, sourceKey, type Odds, type OddsSource } from "../src/core/od
 import { conditionMet, type Trigger } from "../src/core/trigger";
 import { checkArmShape, describeTx, fromB64, readNonce } from "../src/core/order";
 import { fetchPosition } from "../src/core/jupiter";
+import { createDemo } from "./demo";
 
 const RPC = process.env.MAINNET_RPC || "https://api.mainnet-beta.solana.com";
 const PORT = Number(process.env.KEEPER_PORT || 8787);
@@ -168,6 +169,17 @@ app.post("/orders", async c => {
   save();
   return c.json({ id: o.id, simulatedOk: true });
 });
+
+// ---- Judge sandbox (no wallet; devnet odds trades + mainnet simulation, never a mainnet send) ----
+const demo = createDemo(conn, devnetConn);
+const demoErr = (c: any, e: unknown) => c.json({ error: (e as Error).message }, ((e as any).status ?? 500) as any);
+app.get("/demo", async c => { try { return c.json(await demo.snapshot()); } catch (e) { return demoErr(c, e); } });
+app.post("/demo/push/:dir", async c => {
+  const dir = c.req.param("dir");
+  if (dir !== "up" && dir !== "down") return c.json({ error: "dir must be up or down" }, 400);
+  try { return c.json(await demo.push(dir)); } catch (e) { return demoErr(c, e); }
+});
+app.post("/demo/dryrun", async c => { try { return c.json(await demo.dryRun()); } catch (e) { return demoErr(c, e); } });
 
 /** Dry run for anyone: simulate the stored signed bytes against mainnet right now. Sends nothing. */
 app.post("/orders/:id/simulate", async c => {

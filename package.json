@@ -6,7 +6,8 @@
     "dev": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "keeper": "tsx --env-file-if-exists=.env keeper/server.ts",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "demo:setup": "tsx --env-file-if-exists=.env keeper/demo-setup.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
