@@ -39,6 +39,7 @@
   "explorer": "https://solscan.io",
   "rpc": {
     "maxAccountsPerCall": 10,
+    "maxSupportedTransactionVersion": 1,
     "confirmPollMs": 2000,
     "confirmTimeoutMs": 90000,
     "proxyMaxBodyBytes": 65536,
@@ -59,7 +60,11 @@
     "seedLiquidityUsdc": 300,
     "initialPriceBps": 5000,
     "line": 0.6,
-    "pushUsdc": 60,
+    "pushMargin": 0.06,
+    "pushMaxPrice": 0.9,
+    "pushMinUsdc": 5,
+    "pushMaxUsdc": 250,
+    "minLiquidityUsd": 100,
     "minSolLamports": 50000000,
     "pushCooldownMs": 8000
   },

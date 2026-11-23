@@ -105,10 +105,16 @@ export async function findLivePosition(conn: Connection, opts: { signatures: num
   let fallback: PositionView | null = null;
   for (const s of sigs) {
     if (s.err) continue;
-    const tx = await conn.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
+    // Raw JSON keeps this working for transaction versions newer than web3.js v1 can parse.
+    const res: any = await (conn as any)._rpcRequest("getTransaction", [
+      s.signature, { encoding: "json", maxSupportedTransactionVersion: config.rpc.maxSupportedTransactionVersion, commitment: "confirmed" },
+    ]);
+    const tx = res?.result;
     if (!tx) continue;
-    const keys = tx.transaction.message.getAccountKeys({ accountKeysFromLookups: tx.meta?.loadedAddresses }).keySegments().flat()
-      .filter(k => !seen.has(k.toBase58()));
+    const loaded = tx.meta?.loadedAddresses ?? { writable: [], readonly: [] };
+    const keys = [...tx.transaction.message.accountKeys, ...loaded.writable, ...loaded.readonly]
+      .map((k: string) => new PublicKey(k))
+      .filter((k: PublicKey) => !seen.has(k.toBase58()));
     keys.forEach(k => seen.add(k.toBase58()));
     const size = config.rpc.maxAccountsPerCall;
     for (let i = 0; i < keys.length; i += size) {

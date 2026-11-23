@@ -13,7 +13,7 @@ import { buildCloseIx, fetchPosition, findLivePosition, type PositionView } from
 import { assertI64EqualIx, locateI64 } from "../src/core/guard";
 import { computeBudgetIxs } from "../src/core/fees";
 import { describeTx, guardMemo } from "../src/core/order";
-import { fetchPmAmmOdds, marketState, quote } from "../src/core/pmamm";
+import { buyToReach, fetchPmAmmOdds, marketState, quote } from "../src/core/pmamm";
 import { conditionMet, type Trigger } from "../src/core/trigger";
 import { loadDemoKeypair, readDemoState } from "./demo-wallet";
 import { Transaction } from "@solana/web3.js";
@@ -30,7 +30,8 @@ export function createDemo(mainnet: Connection, devnet: Connection | undefined) 
   };
   const trigger = (market: string, line: number): Trigger => ({
     source: { kind: "pmamm", id: market, cluster: "devnet" }, direction: "above", line,
-    holdPolls: 1, minLiquidityUsd: config.trigger.defaultMinLiquidityUsd,
+    // The demo market is small on purpose; its floor is set separately and shown in the UI.
+    holdPolls: 1, minLiquidityUsd: config.demo.minLiquidityUsd,
   });
 
   async function position(): Promise<PositionView | null> {
@@ -73,7 +74,9 @@ export function createDemo(mainnet: Connection, devnet: Connection | undefined) 
     const slip = (n: number) => Math.floor(n * (1 - config.demoSandbox.slippageBps / 10_000));
     let sig: string;
     if (dir === "up") {
-      const amount = Math.round(config.demo.pushUsdc * unit);
+      // Buy just enough YES to lift the price past the line (plus a margin), capped by config.
+      const target = Math.min(s.line + config.demo.pushMargin, config.demo.pushMaxPrice);
+      const amount = Math.max(buyToReach(st, target, Math.round(config.demo.pushMaxUsdc * unit)), Math.round(config.demo.pushMinUsdc * unit));
       sig = await client.send.swap(marketPk, "usdcToYes", amount, slip(quote(st, "usdcToYes", amount)));
     } else {
       const bal = await devnet!.getTokenAccountBalance(getAssociatedTokenAddressSync(m.yesMint, kp.publicKey)).catch(() => null);

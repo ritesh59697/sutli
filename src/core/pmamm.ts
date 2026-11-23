@@ -60,6 +60,25 @@ export function quote(s: PmAmmState, dir: "usdcToYes" | "yesToUsdc", amountIn: n
   return gross - feeOut;
 }
 
+/** YES mid price after buying `amountIn` raw USDC of YES (fee taken first, as the program does). */
+export function priceAfterBuy(s: PmAmmState, amountIn: number): number {
+  const dIn = amountIn - Math.floor((amountIn * cfg.swapFeeBps) / 10_000);
+  const y2 = s.y + dIn;
+  const x2 = xFromY(y2, s.lEff);
+  return capitalPhi((y2 - x2) / s.lEff);
+}
+
+/** Smallest USDC buy (raw) that lifts the mid price to `target`, by bisection. */
+export function buyToReach(s: PmAmmState, target: number, maxRaw: number): number {
+  if (priceAfterBuy(s, maxRaw) < target) return maxRaw;
+  let lo = 0, hi = maxRaw;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (priceAfterBuy(s, mid) >= target) hi = mid; else lo = mid;
+  }
+  return Math.ceil(hi);
+}
+
 const clients = new Map<Cluster, PmAmmClient>();
 function client(conn: Connection, cluster: Cluster) {
   if (!clients.has(cluster))
