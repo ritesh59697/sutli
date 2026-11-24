@@ -8,7 +8,7 @@ import {
   SystemInstruction, SystemProgram, Transaction, TransactionInstruction,
 } from "@solana/web3.js";
 import { PERPS_PROGRAM_ID, config } from "./config";
-import { buildCloseIx, type PositionView } from "./jupiter";
+import { buildCloseIx, POSITION_OPEN_TIME_OFFSET, type PositionView } from "./jupiter";
 import { assertI64EqualIx, decodeAssertI64, locateI64 } from "./guard";
 import { computeBudgetIxs, describeComputeBudget } from "./fees";
 
@@ -49,7 +49,7 @@ export async function buildArmTx(conn: Connection, pos: PositionView, nonceAccou
   const tx = buildPinnedTx(new PublicKey(pos.owner), nonceAccount, nonceValue, [
     ...(await computeBudgetIxs(conn, config.jupiterPerps.closeComputeUnits, [position, new PublicKey(config.jupiterPerps.pool)])),
     guardMemo(new PublicKey(config.memoProgramId), guard.publicKey, `sutli order ${counter.toString()}`),
-    assertI64EqualIx(position, locateI64(acct.data, openTime), openTime), // fails if the position was closed and reopened
+    assertI64EqualIx(position, locateI64(acct.data, openTime, POSITION_OPEN_TIME_OFFSET), openTime), // fails if the position was closed and reopened
     close,
   ]);
   tx.partialSign(guard);
@@ -110,7 +110,7 @@ export function checkArmShape(
   if ((price.microLamports! * limit.units!) / 1e6 > config.priorityFee.maxPriorityLamports) return "Priority fee is above the configured cap.";
   if (d[3].action !== "Guard signature") return "Fourth instruction must be the guard memo.";
   const pin = decodeAssertI64(tx.instructions[4]);
-  if (!pin || pin.target !== expect.position || pin.value !== BigInt(expect.openTime))
+  if (!pin || pin.target !== expect.position || pin.value !== BigInt(expect.openTime) || pin.offset !== POSITION_OPEN_TIME_OFFSET)
     return "Fifth instruction must pin this exact position (its openTime).";
   if (d[5].action !== "Close entire position (market)" || d[5].detail !== expect.position) return "Sixth instruction must close the armed position.";
   if (tx.feePayer?.toBase58() !== expect.owner) return "Fee payer must be the position owner.";

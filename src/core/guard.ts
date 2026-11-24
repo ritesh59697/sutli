@@ -28,14 +28,31 @@ export function assertI64EqualIx(target: PublicKey, offset: number, value: bigin
   return new TransactionInstruction({ programId: new PublicKey(config.lighthouseProgramId), keys: [{ pubkey: target, isSigner: false, isWritable: false }], data });
 }
 
-/** Find where openTime lives in the live account bytes, rather than assuming a layout. */
-export function locateI64(data: Buffer, value: bigint): number {
-  const needle = Buffer.alloc(8);
-  needle.writeBigInt64LE(value);
-  const first = data.indexOf(needle);
-  if (first < 0) throw new Error("openTime not found in position account");
-  if (data.indexOf(needle, first + 1) >= 0) throw new Error("openTime bytes are ambiguous in position account");
-  return first;
+const FIXED_SIZE: Record<string, number> = { bool: 1, u8: 1, i8: 1, u16: 2, i16: 2, u32: 4, i32: 4, u64: 8, i64: 8, u128: 16, i128: 16, publicKey: 32 };
+const ANCHOR_DISCRIMINATOR = 8;
+
+/**
+ * Byte offset of a field in an Anchor account, computed from the program's IDL
+ * (discriminator + the sizes of the fields before it). Only fixed-size fields may precede it.
+ */
+export function idlFieldOffset(idl: { accounts?: { name: string; type: { fields: { name: string; type: unknown }[] } }[] }, account: string, field: string): number {
+  const fields = idl.accounts?.find(a => a.name === account)?.type.fields;
+  if (!fields) throw new Error(`account ${account} not in IDL`);
+  let offset = ANCHOR_DISCRIMINATOR;
+  for (const f of fields) {
+    if (f.name === field) return offset;
+    const size = typeof f.type === "string" ? FIXED_SIZE[f.type] : undefined;
+    if (size === undefined) throw new Error(`cannot size field ${f.name} before ${field}`);
+    offset += size;
+  }
+  throw new Error(`field ${field} not in ${account}`);
+}
+
+/** Offset of `value` as an i64, taken from the layout and confirmed against the live bytes. */
+export function locateI64(data: Buffer, value: bigint, layoutOffset: number): number {
+  if (data.length < layoutOffset + 8 || data.readBigInt64LE(layoutOffset) !== value)
+    throw new Error("position account layout does not match the expected openTime; refusing to pin");
+  return layoutOffset;
 }
 
 /** Decode one of our guard instructions, for the "what you signed" view and keeper checks. */

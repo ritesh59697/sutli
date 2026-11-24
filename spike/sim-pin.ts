@@ -1,7 +1,7 @@
 // Mainnet simulation of the on-chain pin: right openTime must pass, a stale one must fail.
 import { BN } from "@coral-xyz/anchor";
 import { ComputeBudgetProgram, Connection, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
-import { buildCloseIx, fetchPosition } from "../src/core/jupiter";
+import { buildCloseIx, fetchPosition, POSITION_OPEN_TIME_OFFSET } from "../src/core/jupiter";
 import { assertI64EqualIx, locateI64 } from "../src/core/guard";
 import { config } from "../src/core/config";
 
@@ -10,7 +10,7 @@ const address = new PublicKey(process.argv[2]);
 const pos = (await fetchPosition(conn, address))!;
 const data = (await conn.getAccountInfo(address))!.data;
 const openTime = BigInt(pos.openTime);
-const offset = locateI64(data, openTime);
+const offset = locateI64(data, openTime, POSITION_OPEN_TIME_OFFSET);
 console.log("openTime", pos.openTime, "found at offset", offset);
 
 async function sim(label: string, value: bigint) {

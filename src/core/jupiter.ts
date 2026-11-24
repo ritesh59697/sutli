@@ -4,6 +4,7 @@ import { Connection, Keypair, PublicKey, TransactionInstruction } from "@solana/
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { IDL, type Perpetuals } from "./jupiter-idl";
 import { JLP_POOL, PERPS_EVENT_AUTHORITY, PERPS_PROGRAM_ID, config } from "./config";
+import { idlFieldOffset } from "./guard";
 
 export type Side = "long" | "short";
 export interface PositionView {
@@ -29,6 +30,8 @@ export const perpsProgram = (conn: Connection) =>
   new Program<Perpetuals>(IDL, PERPS_PROGRAM_ID, new AnchorProvider(conn, readOnlyWallet as any, {}));
 
 const coder = new BorshAccountsCoder(IDL);
+/** Where Position.openTime lives, from Jupiter's IDL (used by the Lighthouse pin). */
+export const POSITION_OPEN_TIME_OFFSET = idlFieldOffset(IDL as any, "position", "openTime");
 const usd = (bn: BN) => Number(bn.toString()) / 1e6;
 const sideByte: Record<Side, number> = { long: 1, short: 2 };
 

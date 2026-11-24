@@ -9,7 +9,7 @@ import { Connection, Keypair, PublicKey, TransactionMessage, VersionedTransactio
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PmAmmClient } from "@pm-amm/sdk";
 import { config } from "../src/core/config";
-import { buildCloseIx, fetchPosition, findLivePosition, type PositionView } from "../src/core/jupiter";
+import { buildCloseIx, fetchPosition, findLivePosition, POSITION_OPEN_TIME_OFFSET, type PositionView } from "../src/core/jupiter";
 import { assertI64EqualIx, locateI64 } from "../src/core/guard";
 import { computeBudgetIxs } from "../src/core/fees";
 import { describeTx, guardMemo } from "../src/core/order";
@@ -101,7 +101,7 @@ export function createDemo(mainnet: Connection, devnet: Connection | undefined) 
     const ixs = [
       ...(await computeBudgetIxs(mainnet, config.jupiterPerps.closeComputeUnits, [address, new PublicKey(config.jupiterPerps.pool)])),
       guardMemo(new PublicKey(config.memoProgramId), Keypair.generate().publicKey, `sutli demo ${counter.toString()}`),
-      assertI64EqualIx(address, locateI64(acct.data, openTime), openTime),
+      assertI64EqualIx(address, locateI64(acct.data, openTime, POSITION_OPEN_TIME_OFFSET), openTime),
       await buildCloseIx(mainnet, pos, counter),
     ];
     const { blockhash } = await mainnet.getLatestBlockhash();
