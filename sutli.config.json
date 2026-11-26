@@ -37,6 +37,8 @@
     "probeUsd": 10
   },
   "explorer": "https://solscan.io",
+  "repoUrl": "https://github.com/ritesh59697/sutli",
+  "examples": { "kalshi": "KXFEDDECISION-26DEC-H26", "polymarket": "3215007" },
   "rpc": {
     "maxAccountsPerCall": 10,
     "maxSupportedTransactionVersion": 1,

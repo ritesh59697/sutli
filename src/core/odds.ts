@@ -59,7 +59,8 @@ export async function fetchOdds(src: OddsSource, conns?: Partial<Record<"mainnet
     bid: num(m.bestBid),
     ask: num(m.bestAsk),
     last: num(m.lastTradePrice),
-    liquidityUsd: num(m.liquidityNum) ?? 0,
+    // New markets can omit liquidityNum; fall back to the CLOB figure. Unknown depth stays 0, so the trigger will not fire.
+    liquidityUsd: num(m.liquidityNum) ?? num(m.liquidityClob) ?? num(m.liquidity) ?? 0,
     closesAt: m.endDate,
     at: Date.now(),
   };

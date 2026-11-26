@@ -5,6 +5,8 @@ import { WalletTest } from "./WalletTest";
 import { OrdersPanel } from "./OrdersPanel";
 import { TryIt } from "./TryIt";
 import { Landing } from "./Landing";
+import { Code2 } from "lucide-react";
+import { config } from "../../src/core/config";
 
 type Mode = "try" | "arm" | "test";
 const MODES: Mode[] = ["try", "arm", "test"];
@@ -38,7 +40,10 @@ export function App() {
             <h1>Sutli<span className="fuse" aria-hidden /></h1>
             <p>Close your perp when the odds turn.</p>
           </div>
-          <button className="btn" onClick={goTry}>Try it</button>
+          <div className="row" style={{ alignItems: "center" }}>
+            <a className="btn" href={config.repoUrl} target="_blank" rel="noreferrer" ><Code2 size={16} aria-hidden /> Code</a>
+            <button className="btn" onClick={goTry}>Try it</button>
+          </div>
         </header>
         <main>
           <Landing onTry={goTry} />
@@ -62,7 +67,7 @@ export function App() {
           </section>
         </main>
         <footer className="foot">
-          <span>Sutli. Built for the Solana Perps and Prediction Markets hackathon.</span>
+          <span>Sutli. Built for the Solana Perps and Prediction Markets hackathon. <a href={config.repoUrl} target="_blank" rel="noreferrer">Source on GitHub</a></span>
           <span className="hint" style={{ margin: 0 }}>Not financial advice. Trading perps can lose you money.</span>
         </footer>
       </div>

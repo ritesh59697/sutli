@@ -153,7 +153,7 @@ export function ArmFlow({ onArmed }: { onArmed: () => void }) {
             <div className="field">
               <label htmlFor="mid">{kind === "kalshi" ? "Market ticker" : kind === "pmamm" ? "Market address" : "Market id"}</label>
               <input id="mid" value={marketId} onChange={e => { setMarketId(e.target.value); setOdds(null); }}
-                placeholder={kind === "kalshi" ? "e.g. KXFEDDECISION-…" : kind === "pmamm" ? "pm-AMM market account" : "e.g. 516710"} />
+                placeholder={kind === "kalshi" ? `e.g. ${config.examples.kalshi}` : kind === "pmamm" ? "pm-AMM market account" : `e.g. ${config.examples.polymarket}`} />
             </div>
             <div className="field" style={{ flex: "0 0 auto" }}>
               <button className="btn" onClick={loadOdds} disabled={!marketId || busy === "odds"}>
