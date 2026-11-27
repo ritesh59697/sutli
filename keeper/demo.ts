@@ -123,5 +123,11 @@ export function createDemo(mainnet: Connection, devnet: Connection | undefined) 
     return lastDryRun;
   }
 
-  return { snapshot, push, dryRun };
+  /** Small, cheap summary for the landing page's proof strip. */
+  function lastDryRunSummary() {
+    const d = lastDryRun as { at: number; ok: boolean; unitsConsumed?: number; fired: boolean } | null;
+    return d ? { at: d.at, ok: d.ok, unitsConsumed: d.unitsConsumed ?? null, fired: d.fired } : null;
+  }
+
+  return { snapshot, push, dryRun, lastDryRunSummary, demoMarket: () => readDemoState()?.market ?? null };
 }

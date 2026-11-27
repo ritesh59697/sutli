@@ -5,6 +5,7 @@ import { WalletTest } from "./WalletTest";
 import { OrdersPanel } from "./OrdersPanel";
 import { TryIt } from "./TryIt";
 import { Landing } from "./Landing";
+import { ThemeToggle } from "./ThemeToggle";
 import { Code2 } from "lucide-react";
 import { config } from "../../src/core/config";
 
@@ -21,7 +22,7 @@ export function App() {
   const [ordersVersion, setOrdersVersion] = useState(0);
   const appRef = useRef<HTMLElement>(null);
   // A link that names a tab (#try, #arm, #test) opens straight at the app.
-  useEffect(() => { if (location.hash.length > 1) appRef.current?.scrollIntoView(); }, []);
+  useEffect(() => { if (MODES.includes(location.hash.slice(1) as Mode)) appRef.current?.scrollIntoView(); }, []);
   const goTry = () => {
     setModeState("try");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -42,6 +43,7 @@ export function App() {
           </div>
           <div className="row" style={{ alignItems: "center" }}>
             <a className="btn" href={config.repoUrl} target="_blank" rel="noreferrer" ><Code2 size={16} aria-hidden /> Code</a>
+            <ThemeToggle />
             <button className="btn" onClick={goTry}>Try it</button>
           </div>
         </header>

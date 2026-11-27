@@ -6,6 +6,15 @@
     <title>Sutli: close your perp when the odds turn</title>
     <meta name="description" content="Sutli closes your Jupiter perp position when a prediction market's odds cross your line, using one order you sign in advance. It can never move your funds." />
     <meta name="theme-color" content="#13100d" />
+    <script>
+      // Set the theme before first paint: saved choice, else the system setting.
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem("sutli.theme"); } catch (e) {}
+        if (t !== "light" && t !== "dark") t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.dataset.theme = t;
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:title" content="Sutli: close your perp when the odds turn" />
     <meta property="og:description" content="Sign one close order in advance. When the odds cross your line, Sutli sends exactly that order and nothing else." />

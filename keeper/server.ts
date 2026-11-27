@@ -181,6 +181,21 @@ app.post("/demo/push/:dir", async c => {
 });
 app.post("/demo/dryrun", async c => { try { return c.json(await demo.dryRun()); } catch (e) { return demoErr(c, e); } });
 
+/** Live numbers for the landing page, cached briefly so page views never hammer the odds sources. */
+let proofCache: { at: number; body: unknown } | null = null;
+app.get("/proof", async c => {
+  if (proofCache && Date.now() - proofCache.at < config.proof.cacheMs) return c.json(proofCache.body);
+  const fedSrc: OddsSource = { kind: "kalshi", id: config.examples.kalshi };
+  const market = demo.demoMarket();
+  const [fed, demoOdds] = await Promise.all([
+    fetchOdds(fedSrc, oddsConns).catch(() => null),
+    market ? fetchOdds({ kind: "pmamm", id: market, cluster: "devnet" }, oddsConns).catch(() => null) : Promise.resolve(null),
+  ]);
+  const body = { fed: fed && { id: fedSrc.id, ...fed }, demo: demoOdds && { id: market, ...demoOdds }, lastDryRun: demo.lastDryRunSummary(), at: Date.now() };
+  proofCache = { at: Date.now(), body };
+  return c.json(body);
+});
+
 /** Dry run for anyone: simulate the stored signed bytes against mainnet right now. Sends nothing. */
 app.post("/orders/:id/simulate", async c => {
   const o = orders.find(x => x.id === c.req.param("id"));

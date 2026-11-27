@@ -38,6 +38,7 @@
   },
   "explorer": "https://solscan.io",
   "repoUrl": "https://github.com/ritesh59697/sutli",
+  "proof": { "cacheMs": 20000 },
   "examples": { "kalshi": "KXFEDDECISION-26DEC-H26", "polymarket": "3215007" },
   "rpc": {
     "maxAccountsPerCall": 10,
